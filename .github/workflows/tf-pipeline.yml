@@ -35,4 +35,21 @@ jobs:
           exit 1
         fi
     - run: terraform init -backend-config="bucket=${TF_STATE_BUCKET}" -backend-config="prefix=${TF_STATE_PREFIX}"
-    - run: terraform apply -var-file="prod.tfvars" -auto-approve
+    - id: resolve_tfvars
+      name: Resolve Terraform Vars File
+      run: |
+        if [ -f "prod.tfvars" ]; then
+          echo "var_file=prod.tfvars" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        if [ -f "prod.tfvars.example" ]; then
+          echo "prod.tfvars not found. Using prod.tfvars.example for this run."
+          echo "var_file=prod.tfvars.example" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        echo "No Terraform vars file found in infra/environments/prod."
+        echo "Expected one of: prod.tfvars, prod.tfvars.example"
+        exit 1
+    - run: terraform apply -var-file="${{ steps.resolve_tfvars.outputs.var_file }}" -auto-approve
