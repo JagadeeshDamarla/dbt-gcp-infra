@@ -14,6 +14,12 @@ module "cloud_run_job" {
   container_image         = var.container_image
   runtime_service_account = var.runtime_service_account
   log_bucket_name         = var.log_bucket_name
+  snowflake_account       = var.snowflake_account
+  snowflake_user          = var.snowflake_user
+  snowflake_role          = var.snowflake_role
+  snowflake_database      = var.snowflake_database
+  snowflake_warehouse     = var.snowflake_warehouse
+  snowflake_schema        = var.snowflake_schema
   snowflake_password_secret_id = var.snowflake_password_secret_id
 
   depends_on = [module.project_services]

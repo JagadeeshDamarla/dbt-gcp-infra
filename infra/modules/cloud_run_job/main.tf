@@ -16,6 +16,36 @@ resource "google_cloud_run_v2_job" "this" {
 					value = var.log_bucket_name
 				}
 
+					env {
+						name  = "SNOWFLAKE_ACCOUNT"
+						value = var.snowflake_account
+					}
+
+					env {
+						name  = "SNOWFLAKE_USER"
+						value = var.snowflake_user
+					}
+
+					env {
+						name  = "SNOWFLAKE_ROLE"
+						value = var.snowflake_role
+					}
+
+					env {
+						name  = "SNOWFLAKE_DATABASE"
+						value = var.snowflake_database
+					}
+
+					env {
+						name  = "SNOWFLAKE_WAREHOUSE"
+						value = var.snowflake_warehouse
+					}
+
+					env {
+						name  = "SNOWFLAKE_SCHEMA"
+						value = var.snowflake_schema
+					}
+
 				env {
 					name = "SNOWFLAKE_PASSWORD"
 					value_source {
