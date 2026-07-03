@@ -1,0 +1,21 @@
+project_id = "new-map-project-1538399427267"
+region = "us-central1"
+job_name = "dbt-test-job-c-run"
+container_image = "us-central1-docker.pkg.dev/new-map-project-1538399427267/dbt-images/dbt_test:latest"
+workflow_name = "dbt_test_workflow_new"
+runtime_service_account = "github-actions-dbt@new-map-project-1538399427267.iam.gserviceaccount.com"
+log_bucket_name = "dbt_logs_test_2026"
+workflow_source_path = "../../config/workflow.yaml"
+snowflake_password_secret_id = "SNOWFLAKE_PASSWORD"
+slack_webhook_secret_id = "SLACK_WEBHOOK"
+# Optional: override if you need to add/remove managed APIs per environment.
+# required_apis = [
+#   "artifactregistry.googleapis.com",
+#   "iam.googleapis.com",
+#   "logging.googleapis.com",
+#   "run.googleapis.com",
+#   "secretmanager.googleapis.com",
+#   "serviceusage.googleapis.com",
+#   "storage.googleapis.com",
+#   "workflows.googleapis.com"
+# ]
