@@ -90,6 +90,11 @@ terraform import 'module.iam.google_secret_manager_secret_iam_member.slack_webho
 3. App repo deploy workflow builds/pushes image and updates the existing Cloud Run Job image only.
 4. Infra repo owns Cloud Run Job and Workflow definitions via Terraform.
 
+## Workflow scheduling
+1. Workflow executions are scheduled via Cloud Scheduler.
+2. Default schedule is daily at 6:00 AM IST (`0 6 * * *`, timezone `Asia/Kolkata`).
+3. Manual run remains available in GCP by executing the workflow directly.
+
 ## IAM management toggle
 Use `manage_iam_bindings` in `prod.tfvars`:
 1. `false` (default): Terraform skips IAM binding resources. Use this when CI service account lacks IAM policy update permissions.

@@ -8,6 +8,11 @@ output "workflow_name" {
   description = "Cloud Workflow name"
 }
 
+output "workflow_scheduler_name" {
+  value       = module.workflows.scheduler_name
+  description = "Cloud Scheduler job that triggers the workflow"
+}
+
 output "runtime_service_account" {
   value       = var.runtime_service_account
   description = "Runtime service account used by the deployed resources"
