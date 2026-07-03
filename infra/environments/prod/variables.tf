@@ -13,6 +13,11 @@ variable "workflow_name" {
   description = "Cloud Workflow name"
 }
 
+variable "project_number" {
+  type        = string
+  description = "GCP project number"
+}
+
 variable "runtime_service_account" {
   type        = string
   description = "Service account used by the Cloud Run Job and/or workflow runtime"
@@ -41,11 +46,30 @@ variable "slack_webhook_secret_id" {
   default     = "SLACK_WEBHOOK"
 }
 
+variable "workflow_schedule_cron" {
+  type        = string
+  description = "Cron schedule for workflow execution"
+  default     = "0 6 * * *"
+}
+
+variable "workflow_schedule_time_zone" {
+  type        = string
+  description = "Timezone for workflow scheduler"
+  default     = "Asia/Kolkata"
+}
+
+variable "workflow_schedule_paused" {
+  type        = bool
+  description = "Whether workflow scheduler is paused"
+  default     = false
+}
+
 variable "required_apis" {
   type        = list(string)
   description = "Project APIs required by the dbt Cloud Run + Workflows stack"
   default = [
     "artifactregistry.googleapis.com",
+    "cloudscheduler.googleapis.com",
     "iam.googleapis.com",
     "logging.googleapis.com",
     "run.googleapis.com",
