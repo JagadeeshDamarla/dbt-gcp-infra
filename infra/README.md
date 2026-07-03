@@ -42,6 +42,7 @@ terraform plan -var-file=prod.tfvars
 ## Current blockers for apply
 1. The remote state bucket must exist before `terraform init`.
 2. Existing resources should be imported first to avoid accidental recreation.
+3. If the CI identity cannot update project IAM policies, keep `manage_iam_bindings = false` and manage IAM separately.
 
 ## API enablement
 Terraform now enables required APIs via `module.project_services` before provisioning other resources.
@@ -88,3 +89,8 @@ terraform import 'module.iam.google_secret_manager_secret_iam_member.slack_webho
 2. Terraform workflow manages infra plan/apply.
 3. App repo deploy workflow builds/pushes image and updates the existing Cloud Run Job image only.
 4. Infra repo owns Cloud Run Job and Workflow definitions via Terraform.
+
+## IAM management toggle
+Use `manage_iam_bindings` in `prod.tfvars`:
+1. `false` (default): Terraform skips IAM binding resources. Use this when CI service account lacks IAM policy update permissions.
+2. `true`: Terraform manages IAM bindings in `module.iam`; requires elevated permissions such as project IAM admin capabilities.

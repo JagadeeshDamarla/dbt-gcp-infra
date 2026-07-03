@@ -55,3 +55,9 @@ variable "required_apis" {
     "workflows.googleapis.com"
   ]
 }
+
+variable "manage_iam_bindings" {
+  type        = bool
+  description = "Whether Terraform should manage project/bucket/secret IAM bindings for runtime service account"
+  default     = false
+}

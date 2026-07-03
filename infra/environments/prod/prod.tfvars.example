@@ -8,6 +8,8 @@ log_bucket_name = "dbt_logs_test_2026"
 workflow_source_path = "../../config/workflow.yaml"
 snowflake_password_secret_id = "SNOWFLAKE_PASSWORD"
 slack_webhook_secret_id = "SLACK_WEBHOOK"
+# Set to true only when the Terraform runner identity has project IAM policy update permissions.
+manage_iam_bindings = false
 # Optional: override if you need to add/remove managed APIs per environment.
 # required_apis = [
 #   "artifactregistry.googleapis.com",

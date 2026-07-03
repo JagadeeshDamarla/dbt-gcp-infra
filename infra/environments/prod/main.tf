@@ -32,6 +32,7 @@ module "workflows" {
 }
 
 module "iam" {
+  count  = var.manage_iam_bindings ? 1 : 0
   source = "../../modules/iam"
 
   project_id                   = var.project_id
