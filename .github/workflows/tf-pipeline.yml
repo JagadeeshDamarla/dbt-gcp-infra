@@ -4,6 +4,9 @@ on:
 permissions:
   contents: read
   id-token: write
+env:
+  TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+  TF_STATE_PREFIX: ${{ vars.TF_STATE_PREFIX }}
 jobs:
   terraform:
     runs-on: ubuntu-latest
@@ -17,5 +20,18 @@ jobs:
         workload_identity_provider: 'projects/995265336172/locations/global/workloadIdentityPools/github-dbt-pool/providers/github-dbt-provider'
         service_account: 'github-actions-dbt@new-map-project-1538399427267.iam.gserviceaccount.com'
     - uses: hashicorp/setup-terraform@v3
-    - run: terraform init
+    - name: Validate Terraform Backend Variables
+      run: |
+        if [ -z "${TF_STATE_BUCKET}" ]; then
+          echo "Missing TF_STATE_BUCKET GitHub variable."
+          echo "Set it to your GCS bucket name for Terraform state."
+          exit 1
+        fi
+
+        if [ -z "${TF_STATE_PREFIX}" ]; then
+          echo "Missing TF_STATE_PREFIX GitHub variable."
+          echo "Set it to a state prefix, for example: dbt-gcp-infra/prod"
+          exit 1
+        fi
+    - run: terraform init -backend-config="bucket=${TF_STATE_BUCKET}" -backend-config="prefix=${TF_STATE_PREFIX}"
     - run: terraform apply -var-file="prod.tfvars" -auto-approve
