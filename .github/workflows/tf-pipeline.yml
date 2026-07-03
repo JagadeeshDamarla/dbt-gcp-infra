@@ -5,6 +5,7 @@ permissions:
   contents: read
   id-token: write
 env:
+  PROJECT_ID: new-map-project-1538399427267
   TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
   TF_STATE_PREFIX: ${{ vars.TF_STATE_PREFIX }}
 jobs:
@@ -21,6 +22,13 @@ jobs:
         workload_identity_provider: 'projects/995265336172/locations/global/workloadIdentityPools/github-dbt-pool/providers/github-dbt-provider'
         service_account: 'github-actions-dbt@new-map-project-1538399427267.iam.gserviceaccount.com'
     - uses: hashicorp/setup-terraform@v3
+    - name: Bootstrap Required GCP APIs
+      run: |
+        gcloud services enable \
+          serviceusage.googleapis.com \
+          cloudresourcemanager.googleapis.com \
+          iam.googleapis.com \
+          --project=${PROJECT_ID}
     - name: Validate Terraform Backend Variables
       run: |
         if [ -z "${TF_STATE_BUCKET}" ]; then
