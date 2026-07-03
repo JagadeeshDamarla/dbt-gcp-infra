@@ -23,36 +23,6 @@ variable "log_bucket_name" {
   description = "Bucket for dbt log artifacts"
 }
 
-variable "snowflake_account" {
-  type        = string
-  description = "Snowflake account identifier"
-}
-
-variable "snowflake_user" {
-  type        = string
-  description = "Snowflake user name"
-}
-
-variable "snowflake_role" {
-  type        = string
-  description = "Snowflake role"
-}
-
-variable "snowflake_database" {
-  type        = string
-  description = "Snowflake database"
-}
-
-variable "snowflake_warehouse" {
-  type        = string
-  description = "Snowflake warehouse"
-}
-
-variable "snowflake_schema" {
-  type        = string
-  description = "Snowflake schema"
-}
-
 variable "container_image" {
   type        = string
   description = "Container image URI used by the Cloud Run Job"
