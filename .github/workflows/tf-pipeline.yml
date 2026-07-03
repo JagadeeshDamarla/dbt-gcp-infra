@@ -22,13 +22,34 @@ jobs:
         workload_identity_provider: 'projects/995265336172/locations/global/workloadIdentityPools/github-dbt-pool/providers/github-dbt-provider'
         service_account: 'github-actions-dbt@new-map-project-1538399427267.iam.gserviceaccount.com'
     - uses: hashicorp/setup-terraform@v3
-    - name: Bootstrap Required GCP APIs
+    - name: Validate Service Usage API Access
       run: |
-        gcloud services enable \
-          serviceusage.googleapis.com \
-          cloudresourcemanager.googleapis.com \
-          iam.googleapis.com \
-          --project=${PROJECT_ID}
+        set +e
+        SERVICE_USAGE_CHECK=$(gcloud services list --enabled \
+          --project="${PROJECT_ID}" \
+          --filter="config.name:serviceusage.googleapis.com" \
+          --format="value(config.name)" 2>&1)
+        CHECK_EXIT_CODE=$?
+        set -e
+
+        if [ ${CHECK_EXIT_CODE} -ne 0 ]; then
+          echo "Unable to query enabled services for project ${PROJECT_ID}."
+          echo "Most likely causes:"
+          echo "1) Service Usage API is disabled in the project."
+          echo "2) The deploy service account lacks permissions to view/manage services."
+          echo "Action: Enable serviceusage.googleapis.com once using an Owner-level account, then rerun."
+          echo "Console URL: https://console.developers.google.com/apis/api/serviceusage.googleapis.com/overview?project=995265336172"
+          echo "Underlying gcloud error:"
+          echo "${SERVICE_USAGE_CHECK}"
+          exit 1
+        fi
+
+        if [ -z "${SERVICE_USAGE_CHECK}" ]; then
+          echo "serviceusage.googleapis.com is not enabled for project ${PROJECT_ID}."
+          echo "Enable it once using an Owner-level account and rerun this workflow."
+          echo "Console URL: https://console.developers.google.com/apis/api/serviceusage.googleapis.com/overview?project=995265336172"
+          exit 1
+        fi
     - name: Validate Terraform Backend Variables
       run: |
         if [ -z "${TF_STATE_BUCKET}" ]; then
