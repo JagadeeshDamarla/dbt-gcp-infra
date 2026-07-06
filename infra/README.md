@@ -37,7 +37,7 @@ Important rule:
 
 ## Repository Layout
 
-The current layout follows a rock-style pattern where each pipeline has its own Terraform file.
+The current layout uses one Terraform file per dbt pipeline.
 
 - `main.tf` keeps shared base resources such as API enablement
 - `variables.tf` keeps shared input variables
