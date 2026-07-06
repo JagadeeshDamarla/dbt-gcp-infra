@@ -1,113 +1,159 @@
-# Terraform Infra Scaffold
+# Infrastructure README
 
-This folder is the Terraform foundation for the GCP infrastructure that supports the dbt Cloud Run + Workflows setup.
+This folder owns the GCP infrastructure for the dbt runtime. It should describe and manage the things that exist around the dbt image, not the dbt SQL itself.
 
-## Phase 1 goals
-- Pin Terraform and provider versions.
-- Configure remote state in GCS.
-- Define environment root(s) for import and drift control.
-- Add reusable module boundaries for Cloud Run, Workflows, IAM, and Secret Manager references.
+## What This Repo Owns
 
-## Operating model
-- GitHub Actions remains the CI/CD tool for app builds and deploy orchestration.
-- Terraform manages infrastructure state and resource definitions.
-- Application image deploys can continue through GitHub Actions while infra is codified in Terraform.
+The infra repo is responsible for:
 
-## Pipeline file structure
-Environment root follows a rock-style pipeline layout in `infra/`:
-1. `main.tf` keeps shared base resources (for example required API enablement).
-2. `constants.tf` keeps shared environment metadata.
-3. One pipeline file per dbt pipeline, for example `dbt_airflow_test.tf`.
+- Cloud Run Job definition
+- GCP Workflow definition
+- Cloud Scheduler trigger
+- IAM bindings required by the runtime identity
+- Secret Manager references and access grants
+- API enablement required for the platform
+- Terraform state, imports, plan, and apply
 
-To add a new dbt pipeline, create a new `*.tf` file in `infra/` and define:
-1. Pipeline local config (job name, image, workflow name, schedule, secrets, runtime SA).
-2. A Cloud Run module instance.
-3. A Workflow + Scheduler module instance.
-4. Optional IAM and secret reference module instances.
+The integration repo is responsible for:
 
-## Next steps
-1. Create the GCS backend bucket for Terraform state.
-2. Fill in the `prod` environment variables.
-3. Run plan and import existing Cloud Run Job, Workflow, and IAM bindings.
-4. Apply only after plan shows expected drift.
+- dbt project code
+- image build and push
+- deploy-time dbt syntax validation
+- runtime dbt execution inside Cloud Run
 
-## How to test the scaffold
-From the Terraform root:
+## Current Operating Model
+
+The current platform is runtime-driven:
+
+1. GitHub Actions in the integration repo validates the project mapping, runs `dbt deps` and `dbt parse`, then builds and pushes the image.
+2. The infra repo keeps the Cloud Run Job and Workflow definitions in Terraform.
+3. The GCP Workflow triggers the Cloud Run Job with runtime parameters.
+4. The Cloud Run container runs dbt and uploads logs/artifacts to GCS.
+
+Important rule:
+
+- if a change affects actual GCP resources, it belongs here
+- if a change only affects dbt SQL or container runtime behavior, it belongs in the integration repo
+
+## Repository Layout
+
+The current layout follows a rock-style pattern where each pipeline has its own Terraform file.
+
+- `main.tf` keeps shared base resources such as API enablement
+- `variables.tf` keeps shared input variables
+- `providers.tf` keeps provider and backend configuration
+- `constants.tf` keeps shared environment metadata
+- `dbt_airflow_test.tf` defines one dbt pipeline end to end
+- `config/workflow.yaml` defines the GCP Workflow that runs the job
+- `modules/` contains reusable Terraform modules for Cloud Run, Workflows, IAM, and Secret Manager references
+
+## How To Update Infra
+
+### If you change schedule, job name, workflow name, runtime identity, or secrets
+
+Update the matching pipeline file in `infra/`.
+
+For example, in `dbt_airflow_test.tf` you would update:
+
+- `job_name`
+- `container_image`
+- `workflow_name`
+- `runtime_service_account`
+- `log_bucket_name`
+- `workflow_schedule_cron`
+- `workflow_schedule_time_zone`
+- `snowflake_password_secret_id`
+- `slack_webhook_secret_id`
+
+### If you add a new dbt pipeline
+
+1. create a new `*.tf` file in `infra/`
+2. copy the local pipeline config pattern from `dbt_airflow_test.tf`
+3. wire Cloud Run, Workflow, Scheduler, IAM, and secret refs
+4. add any required secret access or API enablement changes
+
+### If you change runtime payload shape
+
+Update `config/workflow.yaml` when you change:
+
+- `dbt_select`
+- `dbt_vars`
+- `dbt_params`
+- notification payload fields
+
+## Validation Commands
+
+From the infra root:
 
 ```bash
 cd infra
-terraform init \
-	-backend-config="bucket=<terraform-state-bucket>" \
-	-backend-config="prefix=dbt-airflow-test/prod"
-
 terraform fmt -recursive
 terraform validate
 ```
 
-To use the example variables file:
+Example plan flow:
 
 ```bash
 cp prod.tfvars.example prod.tfvars
+terraform init -backend-config="bucket=<terraform-state-bucket>" -backend-config="prefix=dbt-airflow-test/prod"
 terraform plan -var-file=prod.tfvars
 ```
 
-## Current blockers for apply
-1. The remote state bucket must exist before `terraform init`.
-2. Existing resources should be imported first to avoid accidental recreation.
-3. If the CI identity cannot update project IAM policies, keep `manage_iam_bindings = false` and manage IAM separately.
+Apply only after the plan matches the expected state.
 
-## API enablement
-Terraform now enables required APIs via `module.project_services` before provisioning other resources.
-The default managed list includes:
-1. `artifactregistry.googleapis.com`
-2. `iam.googleapis.com`
-3. `logging.googleapis.com`
-4. `run.googleapis.com`
-5. `secretmanager.googleapis.com`
-6. `serviceusage.googleapis.com`
-7. `storage.googleapis.com`
-8. `workflows.googleapis.com`
+## Current Import / Drift Expectations
 
-You can override this list per environment using the `required_apis` variable.
+If the resources already exist in GCP:
 
-## Import commands (prod)
-Run these from `infra/` after `terraform init`:
+1. import them before apply
+2. confirm the Terraform names match the live names
+3. keep the plan clean before enabling auto-apply
 
-```bash
-terraform import 'module.dbt_airflow_test_cloud_run_job.google_cloud_run_v2_job.this' \
-	projects/new-map-project-1538399427267/locations/us-central1/jobs/dbt-snowflake-production-job
+If CI cannot manage IAM policy updates:
 
-terraform import 'module.dbt_airflow_test_workflows.google_workflows_workflow.this' \
-	projects/new-map-project-1538399427267/locations/us-central1/workflows/dbt-orchestrator
+- keep `manage_iam_bindings = false`
+- manage IAM separately or through a higher-privileged path
 
-terraform import 'module.dbt_airflow_test_iam[0].google_project_iam_member.workflow_run_developer' \
-	"new-map-project-1538399427267 roles/run.developer serviceAccount:github-actions-dbt@new-map-project-1538399427267.iam.gserviceaccount.com"
+## Default API Set
 
-terraform import 'module.dbt_airflow_test_iam[0].google_project_iam_member.workflow_logging_writer' \
-	"new-map-project-1538399427267 roles/logging.logWriter serviceAccount:github-actions-dbt@new-map-project-1538399427267.iam.gserviceaccount.com"
+Terraform enables the core APIs before provisioning the pipeline resources.
 
-terraform import 'module.dbt_airflow_test_iam[0].google_storage_bucket_iam_member.log_bucket_object_admin' \
-	"b/dbt_logs_test_2026 roles/storage.objectAdmin serviceAccount:github-actions-dbt@new-map-project-1538399427267.iam.gserviceaccount.com"
+The common set includes:
 
-terraform import 'module.dbt_airflow_test_iam[0].google_secret_manager_secret_iam_member.snowflake_password_accessor' \
-	"projects/new-map-project-1538399427267/secrets/SNOWFLAKE_PASSWORD roles/secretmanager.secretAccessor serviceAccount:github-actions-dbt@new-map-project-1538399427267.iam.gserviceaccount.com"
+- `artifactregistry.googleapis.com`
+- `iam.googleapis.com`
+- `logging.googleapis.com`
+- `run.googleapis.com`
+- `secretmanager.googleapis.com`
+- `serviceusage.googleapis.com`
+- `storage.googleapis.com`
+- `workflows.googleapis.com`
 
-terraform import 'module.dbt_airflow_test_iam[0].google_secret_manager_secret_iam_member.slack_webhook_accessor' \
-	"projects/new-map-project-1538399427267/secrets/SLACK_WEBHOOK roles/secretmanager.secretAccessor serviceAccount:github-actions-dbt@new-map-project-1538399427267.iam.gserviceaccount.com"
-```
+You can override the list through the `required_apis` variable.
 
-## CI split
-1. GitHub Actions remains the CI/CD runner.
-2. Terraform workflow manages infra plan/apply.
-3. App repo deploy workflow builds/pushes image and updates the existing Cloud Run Job image only.
-4. Infra repo owns Cloud Run Job and Workflow definitions via Terraform.
+## Scheduling
 
-## Workflow scheduling
-1. Workflow executions are scheduled via Cloud Scheduler.
-2. Default schedule is daily at 6:00 AM IST (`0 6 * * *`, timezone `Asia/Kolkata`).
-3. Manual run remains available in GCP by executing the workflow directly.
+The default schedule for the current pipeline is:
 
-## IAM management toggle
-Use `manage_iam_bindings` in `prod.tfvars`:
-1. `false` (default): Terraform skips IAM binding resources. Use this when CI service account lacks IAM policy update permissions.
-2. `true`: Terraform manages IAM bindings in `module.iam`; requires elevated permissions such as project IAM admin capabilities.
+- cron: `0 6 * * *`
+- timezone: `Asia/Kolkata`
+
+The Workflow remains manually runnable from GCP even when the schedule is enabled.
+
+## IAM Toggle
+
+Use `manage_iam_bindings` to control whether Terraform creates IAM bindings:
+
+- `false`: skip IAM binding resources, useful when the CI identity cannot edit project IAM
+- `true`: let Terraform own the IAM bindings, useful when the pipeline has elevated permissions
+
+## Environment Expectation
+
+This repo assumes the environment has already been bootstrapped with:
+
+- a GCS backend bucket for Terraform state
+- the target GCP project and region
+- any prerequisite secrets in Secret Manager
+- enough permissions for the workflow runtime service account
+
+Do not treat this repo as a place to define dbt models or SQL logic. It should only describe and manage the supporting GCP infrastructure.
