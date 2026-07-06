@@ -16,6 +16,7 @@ main:
           - default_to_date: ${text.substring(time.format(now_ts), 0, 10)}
           - dbt_from_date: ${default_from_date}
           - dbt_to_date: ${default_to_date}
+          - dbt_select: ${default(map.get(args, "dbt_select"), "")}
 
     - apply_dbt_param_overrides:
         switch:
@@ -25,6 +26,18 @@ main:
                   assign:
                     - dbt_from_date: ${default(map.get(args.dbt_params, "from_date"), dbt_from_date)}
                     - dbt_to_date: ${default(map.get(args.dbt_params, "to_date"), dbt_to_date)}
+
+    - set_default_dbt_vars:
+        assign:
+          - dbt_vars_json: ${json.encode_to_string({"from_date": dbt_from_date, "to_date": dbt_to_date})}
+
+    - apply_dbt_vars_override:
+        switch:
+          - condition: ${"dbt_vars" in args}
+            steps:
+              - set_dbt_vars_json_override:
+                  assign:
+                    - dbt_vars_json: ${json.encode_to_string(args.dbt_vars)}
 
     - try_log_effective_dbt_dates:
         try:
@@ -100,6 +113,10 @@ main:
                               value: ${dbt_from_date}
                             - name: "DBT_TO_DATE"
                               value: ${dbt_to_date}
+                            - name: "DBT_SELECT"
+                              value: ${dbt_select}
+                            - name: "DBT_VARS_JSON"
+                              value: ${dbt_vars_json}
                 result: job_execution_response
 
             - capture_operation_name:

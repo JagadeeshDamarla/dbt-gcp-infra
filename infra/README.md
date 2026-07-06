@@ -13,6 +13,18 @@ This folder is the Terraform foundation for the GCP infrastructure that supports
 - Terraform manages infrastructure state and resource definitions.
 - Application image deploys can continue through GitHub Actions while infra is codified in Terraform.
 
+## Pipeline file structure
+Environment root follows a rock-style pipeline layout in `infra/`:
+1. `main.tf` keeps shared base resources (for example required API enablement).
+2. `constants.tf` keeps shared environment metadata.
+3. One pipeline file per dbt pipeline, for example `dbt_airflow_test.tf`.
+
+To add a new dbt pipeline, create a new `*.tf` file in `infra/` and define:
+1. Pipeline local config (job name, image, workflow name, schedule, secrets, runtime SA).
+2. A Cloud Run module instance.
+3. A Workflow + Scheduler module instance.
+4. Optional IAM and secret reference module instances.
+
 ## Next steps
 1. Create the GCS backend bucket for Terraform state.
 2. Fill in the `prod` environment variables.
@@ -20,10 +32,10 @@ This folder is the Terraform foundation for the GCP infrastructure that supports
 4. Apply only after plan shows expected drift.
 
 ## How to test the scaffold
-From the environment root:
+From the Terraform root:
 
 ```bash
-cd infra/environments/prod
+cd infra
 terraform init \
 	-backend-config="bucket=<terraform-state-bucket>" \
 	-backend-config="prefix=dbt-airflow-test/prod"
@@ -59,28 +71,28 @@ The default managed list includes:
 You can override this list per environment using the `required_apis` variable.
 
 ## Import commands (prod)
-Run these from `infra/environments/prod` after `terraform init`:
+Run these from `infra/` after `terraform init`:
 
 ```bash
-terraform import 'module.cloud_run_job.google_cloud_run_v2_job.this' \
+terraform import 'module.dbt_airflow_test_cloud_run_job.google_cloud_run_v2_job.this' \
 	projects/new-map-project-1538399427267/locations/us-central1/jobs/dbt-snowflake-production-job
 
-terraform import 'module.workflows.google_workflows_workflow.this' \
+terraform import 'module.dbt_airflow_test_workflows.google_workflows_workflow.this' \
 	projects/new-map-project-1538399427267/locations/us-central1/workflows/dbt-orchestrator
 
-terraform import 'module.iam.google_project_iam_member.workflow_run_developer' \
+terraform import 'module.dbt_airflow_test_iam[0].google_project_iam_member.workflow_run_developer' \
 	"new-map-project-1538399427267 roles/run.developer serviceAccount:github-actions-dbt@new-map-project-1538399427267.iam.gserviceaccount.com"
 
-terraform import 'module.iam.google_project_iam_member.workflow_logging_writer' \
+terraform import 'module.dbt_airflow_test_iam[0].google_project_iam_member.workflow_logging_writer' \
 	"new-map-project-1538399427267 roles/logging.logWriter serviceAccount:github-actions-dbt@new-map-project-1538399427267.iam.gserviceaccount.com"
 
-terraform import 'module.iam.google_storage_bucket_iam_member.log_bucket_object_admin' \
+terraform import 'module.dbt_airflow_test_iam[0].google_storage_bucket_iam_member.log_bucket_object_admin' \
 	"b/dbt_logs_test_2026 roles/storage.objectAdmin serviceAccount:github-actions-dbt@new-map-project-1538399427267.iam.gserviceaccount.com"
 
-terraform import 'module.iam.google_secret_manager_secret_iam_member.snowflake_password_accessor' \
+terraform import 'module.dbt_airflow_test_iam[0].google_secret_manager_secret_iam_member.snowflake_password_accessor' \
 	"projects/new-map-project-1538399427267/secrets/SNOWFLAKE_PASSWORD roles/secretmanager.secretAccessor serviceAccount:github-actions-dbt@new-map-project-1538399427267.iam.gserviceaccount.com"
 
-terraform import 'module.iam.google_secret_manager_secret_iam_member.slack_webhook_accessor' \
+terraform import 'module.dbt_airflow_test_iam[0].google_secret_manager_secret_iam_member.slack_webhook_accessor' \
 	"projects/new-map-project-1538399427267/secrets/SLACK_WEBHOOK roles/secretmanager.secretAccessor serviceAccount:github-actions-dbt@new-map-project-1538399427267.iam.gserviceaccount.com"
 ```
 
