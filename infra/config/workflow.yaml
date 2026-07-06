@@ -29,7 +29,7 @@ main:
 
     - set_default_dbt_vars:
         assign:
-          - dbt_vars_json: ${json.encode_to_string({"from_date": dbt_from_date, "to_date": dbt_to_date})}
+          - dbt_vars_json: '${json.encode_to_string({"from_date": dbt_from_date, "to_date": dbt_to_date})}'
 
     - apply_dbt_vars_override:
         switch:
@@ -37,7 +37,7 @@ main:
             steps:
               - set_dbt_vars_json_override:
                   assign:
-                    - dbt_vars_json: ${json.encode_to_string(args.dbt_vars)}
+                    - dbt_vars_json: '${json.encode_to_string(args.dbt_vars)}'
 
     - try_log_effective_dbt_dates:
         try:
