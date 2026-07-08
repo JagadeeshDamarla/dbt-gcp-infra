@@ -22,45 +22,6 @@ jobs:
         workload_identity_provider: 'projects/995265336172/locations/global/workloadIdentityPools/github-dbt-pool/providers/github-dbt-provider'
         service_account: 'github-actions-dbt@new-map-project-1538399427267.iam.gserviceaccount.com'
     - uses: hashicorp/setup-terraform@v3
-    - name: Validate Service Usage API Access
-      run: |
-        set +e
-        SERVICE_USAGE_CHECK=$(gcloud services list --enabled \
-          --project="${PROJECT_ID}" \
-          --filter="config.name:serviceusage.googleapis.com" \
-          --format="value(config.name)" 2>&1)
-        CHECK_EXIT_CODE=$?
-        set -e
-
-        if [ ${CHECK_EXIT_CODE} -ne 0 ]; then
-          echo "Unable to query enabled services for project ${PROJECT_ID}."
-          echo "Most likely causes:"
-          echo "1) Service Usage API is disabled in the project."
-          echo "2) The deploy service account lacks permissions to view/manage services."
-          echo "Action: Enable serviceusage.googleapis.com once using an Owner-level account, then rerun."
-          echo "Console URL: https://console.developers.google.com/apis/api/serviceusage.googleapis.com/overview?project=995265336172"
-          echo "Underlying gcloud error:"
-          echo "${SERVICE_USAGE_CHECK}"
-          exit 1
-        fi
-
-        if [ -z "${SERVICE_USAGE_CHECK}" ]; then
-          echo "serviceusage.googleapis.com is not enabled for project ${PROJECT_ID}."
-          echo "Enable it once using an Owner-level account and rerun this workflow."
-          echo "Console URL: https://console.developers.google.com/apis/api/serviceusage.googleapis.com/overview?project=995265336172"
-          exit 1
-        fi
-    - name: Validate Terraform Backend Config
-      run: |
-        if [ -z "${TF_STATE_BUCKET}" ]; then
-          echo "TF_STATE_BUCKET is not set in tf-pipeline.yml."
-          exit 1
-        fi
-
-        if [ -z "${TF_STATE_PREFIX}" ]; then
-          echo "TF_STATE_PREFIX is not set in tf-pipeline.yml."
-          exit 1
-        fi
     - run: terraform init -backend-config="bucket=${TF_STATE_BUCKET}" -backend-config="prefix=${TF_STATE_PREFIX}"
     - id: resolve_tfvars
       name: Resolve Terraform Vars File
@@ -79,4 +40,97 @@ jobs:
         echo "No Terraform vars file found in infra/."
         echo "Expected one of: prod.tfvars, prod.tfvars.example"
         exit 1
-    - run: terraform apply -var-file="${{ steps.resolve_tfvars.outputs.var_file }}" -auto-approve
+    - name: Import Existing Resources Into State
+      run: |
+        set -euo pipefail
+
+        VAR_FILE="${{ steps.resolve_tfvars.outputs.var_file }}"
+
+        REGION_VALUE="$(awk -F'=' '/^region[[:space:]]*=/{gsub(/["[:space:]]/, "", $2); print $2; exit}' "$VAR_FILE")"
+        if [ -z "${REGION_VALUE}" ]; then
+          REGION_VALUE="us-central1"
+        fi
+
+        ARTIFACT_REPO_ID="$(awk -F'=' '/^artifact_registry_repository_id[[:space:]]*=/{gsub(/["[:space:]]/, "", $2); print $2; exit}' "$VAR_FILE")"
+        if [ -z "${ARTIFACT_REPO_ID}" ]; then
+          ARTIFACT_REPO_ID="dbt-images"
+        fi
+
+        extract_local_value() {
+          local file_path="$1"
+          local key="$2"
+          awk -F'"' -v k="$key" '$0 ~ "^[[:space:]]*"k"[[:space:]]*=" && $2 != "" {print $2; exit}' "$file_path"
+        }
+
+        import_if_missing_in_state() {
+          local address="$1"
+          local import_id="$2"
+
+          if terraform state show "$address" >/dev/null 2>&1; then
+            echo "State already contains $address"
+            return 0
+          fi
+
+          echo "Importing $address"
+          terraform import "$address" "$import_id"
+        }
+
+        maybe_import_artifact_repo() {
+          if gcloud artifacts repositories describe "$ARTIFACT_REPO_ID" --project="$PROJECT_ID" --location="$REGION_VALUE" >/dev/null 2>&1; then
+            import_if_missing_in_state \
+              "google_artifact_registry_repository.dbt_images" \
+              "projects/${PROJECT_ID}/locations/${REGION_VALUE}/repositories/${ARTIFACT_REPO_ID}"
+          else
+            echo "Artifact Registry repo ${ARTIFACT_REPO_ID} not found. Terraform will create it."
+          fi
+        }
+
+        maybe_import_pipeline_resources() {
+          local module_prefix="$1"
+          local tf_file="$2"
+
+          local job_name
+          local workflow_name
+
+          job_name="$(extract_local_value "$tf_file" "job_name")"
+          workflow_name="$(extract_local_value "$tf_file" "workflow_name")"
+
+          if [ -z "$job_name" ] || [ -z "$workflow_name" ]; then
+            echo "Skipping $tf_file because job_name/workflow_name could not be resolved."
+            return 0
+          fi
+
+          if gcloud run jobs describe "$job_name" --project="$PROJECT_ID" --region="$REGION_VALUE" >/dev/null 2>&1; then
+            import_if_missing_in_state \
+              "module.${module_prefix}_cloud_run_job.google_cloud_run_v2_job.this" \
+              "projects/${PROJECT_ID}/locations/${REGION_VALUE}/jobs/${job_name}"
+          else
+            echo "Cloud Run Job ${job_name} not found. Terraform will create it."
+          fi
+
+          if gcloud workflows describe "$workflow_name" --project="$PROJECT_ID" --location="$REGION_VALUE" >/dev/null 2>&1; then
+            import_if_missing_in_state \
+              "module.${module_prefix}_workflows.google_workflows_workflow.this" \
+              "projects/${PROJECT_ID}/locations/${REGION_VALUE}/workflows/${workflow_name}"
+          else
+            echo "Workflow ${workflow_name} not found. Terraform will create it."
+          fi
+
+          local scheduler_name
+          scheduler_name="${workflow_name}-scheduler"
+          if gcloud scheduler jobs describe "$scheduler_name" --project="$PROJECT_ID" --location="$REGION_VALUE" >/dev/null 2>&1; then
+            import_if_missing_in_state \
+              "module.${module_prefix}_workflows.google_cloud_scheduler_job.workflow_trigger" \
+              "projects/${PROJECT_ID}/locations/${REGION_VALUE}/jobs/${scheduler_name}"
+          else
+            echo "Scheduler ${scheduler_name} not found. Terraform will create it."
+          fi
+        }
+
+        maybe_import_artifact_repo
+        maybe_import_pipeline_resources "dbt_airflow_test" "dbt_airflow_test.tf"
+        maybe_import_pipeline_resources "dbt_project_2" "dbt_project_2.tf"
+    - name: Terraform Plan
+      run: terraform plan -var-file="${{ steps.resolve_tfvars.outputs.var_file }}" -out=tfplan
+    - name: Terraform Apply
+      run: terraform apply -auto-approve tfplan
