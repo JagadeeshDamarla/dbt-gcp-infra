@@ -43,6 +43,15 @@ output "log_bucket_names" {
   description = "GCS buckets used by dbt pipelines to upload artifacts"
 }
 
+output "artifact_registry_repository" {
+  value = {
+    name          = google_artifact_registry_repository.dbt_images.name
+    repository_id = google_artifact_registry_repository.dbt_images.repository_id
+    location      = google_artifact_registry_repository.dbt_images.location
+  }
+  description = "Artifact Registry Docker repository managed by Terraform"
+}
+
 output "slack_webhook_secret_names" {
   value = {
     dbt_airflow_test = module.dbt_airflow_test_secret_manager_refs.slack_webhook_secret_name

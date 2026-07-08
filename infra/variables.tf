@@ -30,3 +30,9 @@ variable "manage_iam_bindings" {
   description = "Whether Terraform should manage project/bucket/secret IAM bindings for runtime service account"
   default     = false
 }
+
+variable "artifact_registry_repository_id" {
+  type        = string
+  description = "Artifact Registry Docker repository id used by dbt images"
+  default     = "dbt-images"
+}

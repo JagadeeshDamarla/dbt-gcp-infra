@@ -9,6 +9,7 @@ The infra repo is responsible for:
 - Cloud Run Job definition
 - GCP Workflow definition
 - Cloud Scheduler trigger
+- Artifact Registry Docker repository for dbt images
 - IAM bindings required by the runtime identity
 - Secret Manager references and access grants
 - API enablement required for the platform
@@ -100,6 +101,11 @@ terraform plan -var-file=prod.tfvars
 ```
 
 Apply only after the plan matches the expected state.
+
+Artifact Registry note:
+
+- Terraform now manages a Docker Artifact Registry repository (default id: `dbt-images`).
+- If that repository already exists in the target project and was created outside Terraform, import it once before apply to avoid a 409 conflict.
 
 ## Current Import / Drift Expectations
 
