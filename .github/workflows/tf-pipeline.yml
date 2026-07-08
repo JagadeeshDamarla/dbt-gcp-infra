@@ -13,6 +13,7 @@ env:
   TF_STATE_PREFIX: state-logsv2.0
   TF_INPUT: "false"
   TF_LOCK_TIMEOUT: 10m
+  ALLOW_WORKFLOW_RECREATE_ON_STATE_RESET: "true"
 jobs:
   terraform:
     runs-on: ubuntu-latest
@@ -114,9 +115,16 @@ jobs:
           fi
 
           if gcloud workflows describe "$workflow_name" --project="$PROJECT_ID" --location="$REGION_VALUE" >/dev/null 2>&1; then
-            import_if_missing_in_state \
-              "module.${module_prefix}_workflows.google_workflows_workflow.this" \
-              "projects/${PROJECT_ID}/locations/${REGION_VALUE}/workflows/${workflow_name}"
+            if terraform state show "module.${module_prefix}_workflows.google_workflows_workflow.this" >/dev/null 2>&1; then
+              echo "State already contains module.${module_prefix}_workflows.google_workflows_workflow.this"
+            elif [ "${ALLOW_WORKFLOW_RECREATE_ON_STATE_RESET}" = "true" ]; then
+              echo "Workflow ${workflow_name} exists but google_workflows_workflow does not support import; deleting existing workflow so Terraform can recreate it."
+              gcloud workflows delete "$workflow_name" --project="$PROJECT_ID" --location="$REGION_VALUE" --quiet
+            else
+              echo "Workflow ${workflow_name} exists outside state and cannot be imported by provider."
+              echo "Set ALLOW_WORKFLOW_RECREATE_ON_STATE_RESET=true to let the workflow be deleted and recreated automatically."
+              exit 1
+            fi
           else
             echo "Workflow ${workflow_name} not found. Terraform will create it."
           fi
