@@ -1,9 +1,9 @@
 locals {
   dbt_airflow_test = {
-    job_name                     = "dbt-test-job-c-run"
+    job_name                     = "dbttest-job1"
     # Bootstrap placeholder so Terraform can create the Cloud Run Job before dbt_image_2 exists; integration deploy later updates it to the real runtime image.
     container_image              = "us-docker.pkg.dev/cloudrun/container/hello"
-    workflow_name                = "dbt-orchestrator-job1"
+    workflow_name                = "dbttest-orchestrator-job1"
     runtime_service_account      = "github-actions-dbt@new-map-project-1538399427267.iam.gserviceaccount.com"
     log_bucket_name              = "dbt_logs_test_2026"
     workflow_schedule_cron       = "0 6 * * *"
