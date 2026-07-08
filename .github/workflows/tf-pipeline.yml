@@ -8,6 +8,7 @@ env:
   PROJECT_ID: new-map-project-1538399427267
   TF_STATE_BUCKET: dbt-tf-state-logs-2026-test
   TF_STATE_PREFIX: state-logsv2.0
+  TF_INPUT: "false"
 jobs:
   terraform:
     runs-on: ubuntu-latest
@@ -72,7 +73,7 @@ jobs:
           fi
 
           echo "Importing $address"
-          terraform import "$address" "$import_id"
+          terraform import -var-file="$VAR_FILE" "$address" "$import_id"
         }
 
         maybe_import_artifact_repo() {
@@ -131,6 +132,6 @@ jobs:
         maybe_import_pipeline_resources "dbt_airflow_test" "dbt_airflow_test.tf"
         maybe_import_pipeline_resources "dbt_project_2" "dbt_project_2.tf"
     - name: Terraform Plan
-      run: terraform plan -var-file="${{ steps.resolve_tfvars.outputs.var_file }}" -out=tfplan
+      run: terraform plan -input=false -var-file="${{ steps.resolve_tfvars.outputs.var_file }}" -out=tfplan
     - name: Terraform Apply
-      run: terraform apply -auto-approve tfplan
+      run: terraform apply -input=false -auto-approve tfplan
