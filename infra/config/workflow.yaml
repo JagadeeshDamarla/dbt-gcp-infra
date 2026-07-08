@@ -14,22 +14,11 @@ main:
           - now_ts: ${sys.now()}
           - default_from_date: ${text.substring(time.format(now_ts - 86400), 0, 10)}
           - default_to_date: ${text.substring(time.format(now_ts), 0, 10)}
-          - dbt_from_date: ${default_from_date}
-          - dbt_to_date: ${default_to_date}
           - dbt_select: ${default(map.get(args, "dbt_select"), "")}
-
-    - apply_dbt_param_overrides:
-        switch:
-          - condition: ${"dbt_params" in args}
-            steps:
-              - set_dbt_param_overrides:
-                  assign:
-                    - dbt_from_date: ${default(map.get(args.dbt_params, "from_date"), dbt_from_date)}
-                    - dbt_to_date: ${default(map.get(args.dbt_params, "to_date"), dbt_to_date)}
 
     - set_default_dbt_vars:
         assign:
-          - dbt_vars_json: '${"{\"from_date\":\"" + dbt_from_date + "\",\"to_date\":\"" + dbt_to_date + "\"}"}'
+          - dbt_vars_json: '${"{\"from_date\":\"" + default_from_date + "\",\"to_date\":\"" + default_to_date + "\"}"}'
 
     - apply_dbt_vars_override:
         switch:
@@ -39,20 +28,20 @@ main:
                   assign:
                     - dbt_vars_json: '${json.encode_to_string(args.dbt_vars)}'
 
-    - try_log_effective_dbt_dates:
+    - try_log_effective_dbt_vars:
         try:
           steps:
-            - log_effective_dbt_dates:
+            - log_effective_dbt_vars:
                 call: sys.log
                 args:
                   severity: "INFO"
-                  text: '${"Effective dbt date params: from_date=" + dbt_from_date + ", to_date=" + dbt_to_date}'
+                  text: '${"Effective dbt vars payload: " + dbt_vars_json}'
         except:
-          as: log_effective_dbt_dates_error
+          as: log_effective_dbt_vars_error
           steps:
             - ignore_log_permission_error:
                 assign:
-                  - _ignored_log_error: ${log_effective_dbt_dates_error}
+                  - _ignored_log_error: ${log_effective_dbt_vars_error}
 
     - load_slack_webhook_secret:
         call: googleapis.secretmanager.v1.projects.secrets.versions.access
@@ -109,10 +98,6 @@ main:
                     overrides:
                       containerOverrides:
                         - env:
-                            - name: "DBT_FROM_DATE"
-                              value: ${dbt_from_date}
-                            - name: "DBT_TO_DATE"
-                              value: ${dbt_to_date}
                             - name: "DBT_SELECT"
                               value: ${dbt_select}
                             - name: "DBT_VARS_JSON"

@@ -79,7 +79,6 @@ Update `config/workflow.yaml` when you change:
 
 - `dbt_select`
 - `dbt_vars`
-- `dbt_params`
 - notification payload fields
 
 ## Validation Commands
