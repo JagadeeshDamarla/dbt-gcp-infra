@@ -95,7 +95,7 @@ Example plan flow:
 
 ```bash
 cp prod.tfvars.example prod.tfvars
-terraform init -backend-config="bucket=<terraform-state-bucket>" -backend-config="prefix=dbt-airflow-test/prod"
+terraform init -backend-config="bucket=<terraform-state-bucket>" -backend-config="prefix=<terraform-state-prefix>"
 terraform plan -var-file=prod.tfvars
 ```
 
@@ -152,6 +152,7 @@ Use `manage_iam_bindings` to control whether Terraform creates IAM bindings:
 This repo assumes the environment has already been bootstrapped with:
 
 - a GCS backend bucket for Terraform state
+- the Terraform workflow or local init command points to the correct bucket and prefix
 - the target GCP project and region
 - any prerequisite secrets in Secret Manager
 - enough permissions for the workflow runtime service account

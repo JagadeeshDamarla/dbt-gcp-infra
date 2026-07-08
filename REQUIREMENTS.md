@@ -161,7 +161,7 @@ Current operational safeguard:
 
 ## 12. Common Failure Modes
 - Service Usage API disabled or inaccessible.
-- Missing TF_STATE_BUCKET / TF_STATE_PREFIX.
+- Missing or incorrect Terraform backend bucket/prefix configuration in the workflow or local init command.
 - Missing cloudscheduler.jobs.create permission.
 - Missing IAM policy update permission when manage_iam_bindings=true.
 - Secret accessor permissions missing for runtime service account.
